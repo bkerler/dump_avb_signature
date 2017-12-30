@@ -1,4 +1,4 @@
-# Dump Android Verified Boot Signature
+# Dump/Verify Android Verified Boot Signature Hash
 
 Why
 ===
