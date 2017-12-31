@@ -42,7 +42,7 @@ def dump_signature(data):
         pub_key = RSA.importKey(subjectPublicKeyInfo)
         pub_key = rsa.PublicKey(int(pub_key.n), int(pub_key.e))
         hash=extract_hash(pub_key,signature)
-        return [name,length,hash]
+        return [name,length,hash,pub_key]
 
 class androidboot:
     magic="ANDROID!" #BOOT_MAGIC_SIZE 8
@@ -83,6 +83,9 @@ def getheader(inputfile):
         param.extra_cmdline = fields[21]
     return param
 
+def int_to_bytes(x):
+    return x.to_bytes((x.bit_length() + 7) // 8, 'big')
+
 def main(argv):
     print("\nDump Android Verified Boot Signature (c) B.Kerler 2017")
     print("------------------------------------------------------")
@@ -106,13 +109,35 @@ def main(argv):
         signature = fr.read()
         metadata=dump_signature(signature)
         target = metadata[0]
-        print("Target: "+str(target))
-        print("Length: "+hex(metadata[1]))
-        print("Signature-Hash: "+str(binascii.hexlify(metadata[2])))
+        print("\nImage-Target: "+str(target))
+        print("Image-Length: "+hex(metadata[1]))
+
         meta=b"\x30\x11\x13"+bytes(struct.pack('B',len(target)))+target+b"\x02\x04"+bytes(struct.pack(">I",length))
         sha256.update(meta)
         digest=sha256.digest()
-        print("Calculated Hash: "+str(binascii.hexlify(digest)))
+        print("\nImage-Hash: "+str(binascii.hexlify(digest)))
+        print("Signature-Hash: " + str(binascii.hexlify(metadata[2])))
+
+        pub_key=metadata[3]
+        modulus=int_to_bytes(pub_key.n)
+        exponent=int_to_bytes(pub_key.e)
+        print("\nSignature-RSA-Modulus (n): "+str(binascii.hexlify(modulus)))
+        print("Signature-RSA-Exponent (e): " + str(binascii.hexlify(exponent)))
+
+        sha256 = hashlib.sha256()
+        sha256.update(modulus+exponent)
+        pubkey_hash=sha256.digest()
+
+        locked=pubkey_hash+struct.pack('<I',0x0)
+        unlocked = pubkey_hash + struct.pack('<I', 0x1)
+        sha256 = hashlib.sha256()
+        sha256.update(locked)
+        root_of_trust_locked=sha256.digest()
+        sha256 = hashlib.sha256()
+        sha256.update(unlocked)
+        root_of_trust_unlocked=sha256.digest()
+        print("\nTZ Root of trust (locked): "+str(binascii.hexlify(root_of_trust_locked)))
+        print("TZ Root of trust (unlocked): " + str(binascii.hexlify(root_of_trust_unlocked)))
 
 if __name__ == "__main__":
    main(sys.argv[1:])
