@@ -54,7 +54,8 @@ class androidboot:
     second_size=0
     tags_addr=0
     page_size=0
-    unused=0
+    qcdt_size=0
+    qcdt_addr=0
     os_version=0
     name="" #BOOT_NAME_SIZE 16
     cmdline="" #BOOT_ARGS_SIZE 512
@@ -65,7 +66,7 @@ def getheader(inputfile):
     param = androidboot()
     with open(inputfile, 'rb') as rf:
         header = rf.read(0x660)
-        fields = struct.unpack('<8sIIIIIIIIII16s512s8I1024s', header)
+        fields = struct.unpack('<8sIIIIIIIIIIII8s512s8I1024s', header)
         param.magic = fields[0]
         param.kernel_size = fields[1]
         param.kernel_addr = fields[2]
@@ -75,12 +76,13 @@ def getheader(inputfile):
         param.second_addr = fields[6]
         param.tags_addr = fields[7]
         param.page_size = fields[8]
-        param.unused = fields[9]
-        param.os_version = fields[10]
-        param.name = fields[11]
-        param.cmdline = fields[12]
-        param.id = [fields[13],fields[14],fields[15],fields[16],fields[17],fields[18],fields[19],fields[20]]
-        param.extra_cmdline = fields[21]
+        param.qcdt_size = fields[9]
+        param.qcdt_addr = fields[10]
+        param.os_version = fields[11]
+        param.name = fields[12]
+        param.cmdline = fields[13]
+        param.id = [fields[14],fields[15],fields[16],fields[17],fields[18],fields[19],fields[20],fields[21]]
+        param.extra_cmdline = fields[22]
     return param
 
 def int_to_bytes(x):
@@ -97,10 +99,13 @@ def main(argv):
     kernelsize = int((param.kernel_size + param.page_size - 1) / param.page_size) * param.page_size
     ramdisksize = int((param.ramdisk_size + param.page_size - 1) / param.page_size) * param.page_size
     secondsize = int((param.second_size + param.page_size - 1) / param.page_size) * param.page_size
+    qcdtsize = int((param.qcdt_size + param.page_size - 1) / param.page_size) * param.page_size
+
     print("Kernel=0x%08X, length=0x%08X" % (param.page_size, kernelsize))
     print("Ramdisk=0x%08X, length=0x%08X" % ((param.page_size+kernelsize),ramdisksize))
     print("Second=0x%08X, length=0x%08X" % ((param.page_size+kernelsize+ramdisksize),secondsize))
-    length=param.page_size+kernelsize+ramdisksize+secondsize
+    print("QCDT=0x%08X, length=0x%08X" % ((param.page_size+kernelsize+ramdisksize+secondsize),qcdtsize))
+    length=param.page_size+kernelsize+ramdisksize+secondsize+qcdtsize
     print("Signature start=0x%08X" % length)
     sha256=hashlib.sha256()
     with open(filename,'rb') as fr:
