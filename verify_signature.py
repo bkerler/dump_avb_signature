@@ -54,7 +54,7 @@ class androidboot:
     second_size=0
     tags_addr=0
     page_size=0
-    unused=0
+    qcdt_size=0
     os_version=0
     name="" #BOOT_NAME_SIZE 16
     cmdline="" #BOOT_ARGS_SIZE 512
@@ -75,7 +75,7 @@ def getheader(inputfile):
         param.second_addr = fields[6]
         param.tags_addr = fields[7]
         param.page_size = fields[8]
-        param.unused = fields[9]
+        param.qcdt_size = fields[9]
         param.os_version = fields[10]
         param.name = fields[11]
         param.cmdline = fields[12]
@@ -97,10 +97,13 @@ def main(argv):
     kernelsize = int((param.kernel_size + param.page_size - 1) / param.page_size) * param.page_size
     ramdisksize = int((param.ramdisk_size + param.page_size - 1) / param.page_size) * param.page_size
     secondsize = int((param.second_size + param.page_size - 1) / param.page_size) * param.page_size
+    qcdtsize = int((param.qcdt_size + param.page_size - 1) / param.page_size) * param.page_size
+    
     print("Kernel=0x%08X, length=0x%08X" % (param.page_size, kernelsize))
     print("Ramdisk=0x%08X, length=0x%08X" % ((param.page_size+kernelsize),ramdisksize))
     print("Second=0x%08X, length=0x%08X" % ((param.page_size+kernelsize+ramdisksize),secondsize))
-    length=param.page_size+kernelsize+ramdisksize+secondsize
+    print("QCDT=0x%08X, length=0x%08X" % ((param.page_size+kernelsize+ramdisksize+secondsize),qcdtsize))
+    length=param.page_size+kernelsize+ramdisksize+secondsize+qcdtsize
     print("Signature start=0x%08X" % length)
     sha256=hashlib.sha256()
     with open(filename,'rb') as fr:
