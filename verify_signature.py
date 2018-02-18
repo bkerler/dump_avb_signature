@@ -87,8 +87,8 @@ def int_to_bytes(x):
     return x.to_bytes((x.bit_length() + 7) // 8, 'big')
 
 def main(argv):
-    print("\nDump Android Verified Boot Signature (c) B.Kerler 2017")
-    print("------------------------------------------------------")
+    print("\nDump Android Verified Boot Signature v1.2 (c) B.Kerler 2017-2018")
+    print("----------------------------------------------------------------")
     if (len(argv)!=1):
         print("Usage: verify_signature.py [boot.img]")
         exit(0)
@@ -108,39 +108,47 @@ def main(argv):
     sha256=hashlib.sha256()
     with open(filename,'rb') as fr:
         data=fr.read(length)
+        id=binascii.hexlify(data[576:576+32])
+        print("ID: "+id.decode('utf-8'))
         sha256.update(data)
         signature = fr.read()
         metadata=dump_signature(signature)
-        target = metadata[0]
-        print("\nImage-Target: "+str(target))
-        print("Image-Length: "+hex(metadata[1]))
+        if (metadata is not None):
+            target = metadata[0]
+            print("\nImage-Target: "+str(target))
+            print("Image-Length: "+hex(metadata[1]))
 
-        meta=b"\x30\x11\x13"+bytes(struct.pack('B',len(target)))+target+b"\x02\x04"+bytes(struct.pack(">I",length))
-        sha256.update(meta)
-        digest=sha256.digest()
-        print("\nImage-Hash: "+str(binascii.hexlify(digest)))
-        print("Signature-Hash: " + str(binascii.hexlify(metadata[2])))
+            meta=b"\x30\x11\x13"+bytes(struct.pack('B',len(target)))+target+b"\x02\x04"+bytes(struct.pack(">I",length))
+            sha256.update(meta)
+            digest=sha256.digest()
+            print("\nImage-Hash: "+str(binascii.hexlify(digest)))
+            print("Signature-Hash: " + str(binascii.hexlify(metadata[2])))
+            if str(binascii.hexlify(digest))==str(binascii.hexlify(metadata[2])):
+                print("AVB-Status: VERIFIED, 0")
+            else:
+                print("AVB-Status: RED, 3 or ORANGE, 1")
+            pub_key=metadata[3]
+            modulus=int_to_bytes(pub_key.n)
+            exponent=int_to_bytes(pub_key.e)
+            print("\nSignature-RSA-Modulus (n): "+str(binascii.hexlify(modulus)))
+            print("Signature-RSA-Exponent (e): " + str(binascii.hexlify(exponent)))
 
-        pub_key=metadata[3]
-        modulus=int_to_bytes(pub_key.n)
-        exponent=int_to_bytes(pub_key.e)
-        print("\nSignature-RSA-Modulus (n): "+str(binascii.hexlify(modulus)))
-        print("Signature-RSA-Exponent (e): " + str(binascii.hexlify(exponent)))
+            sha256 = hashlib.sha256()
+            sha256.update(modulus+exponent)
+            pubkey_hash=sha256.digest()
 
-        sha256 = hashlib.sha256()
-        sha256.update(modulus+exponent)
-        pubkey_hash=sha256.digest()
-
-        locked=pubkey_hash+struct.pack('<I',0x0)
-        unlocked = pubkey_hash + struct.pack('<I', 0x1)
-        sha256 = hashlib.sha256()
-        sha256.update(locked)
-        root_of_trust_locked=sha256.digest()
-        sha256 = hashlib.sha256()
-        sha256.update(unlocked)
-        root_of_trust_unlocked=sha256.digest()
-        print("\nTZ Root of trust (locked): "+str(binascii.hexlify(root_of_trust_locked)))
-        print("TZ Root of trust (unlocked): " + str(binascii.hexlify(root_of_trust_unlocked)))
+            locked=pubkey_hash+struct.pack('<I',0x0)
+            unlocked = pubkey_hash + struct.pack('<I', 0x1)
+            sha256 = hashlib.sha256()
+            sha256.update(locked)
+            root_of_trust_locked=sha256.digest()
+            sha256 = hashlib.sha256()
+            sha256.update(unlocked)
+            root_of_trust_unlocked=sha256.digest()
+            print("\nTZ Root of trust (locked): " + str(binascii.hexlify(root_of_trust_locked)))
+            print("TZ Root of trust (unlocked): " + str(binascii.hexlify(root_of_trust_unlocked)))
+        else:
+            print("\nNo AVB v1 signature found.")
 
 if __name__ == "__main__":
    main(sys.argv[1:])

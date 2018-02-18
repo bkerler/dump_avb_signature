@@ -1,4 +1,4 @@
-# Dump/Verify Android Verified Boot Signature Hash
+# Dump/Verify Android Verified Boot Signature Hash v1.2 (c) B.Kerler 2017-2018
 
 Why
 ===
