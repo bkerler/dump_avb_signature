@@ -1,4 +1,4 @@
-# Dump/Verify Android Verified Boot Signature Hash v1.2 (c) B.Kerler 2017-2018
+# Dump/Verify Android Verified Boot Signature Hash v1.3 (c) B.Kerler 2017-2018
 
 Why
 ===
@@ -12,7 +12,7 @@ Installation
 
 Run
 ===
-- python verify_signature.py boot.img
+- python verify_signature.py --file boot.img
 
 Issues
 ======

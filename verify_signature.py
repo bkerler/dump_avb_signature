@@ -1,12 +1,15 @@
-# Dump Android Verified Boot Signature (c) B.Kerler 2017
+#!/usr/bin/env python3
+# Dump Android Verified Boot Signature (c) B.Kerler 2017-2018
 import hashlib
 import struct
 import binascii
 import rsa
 import sys
+import argparse
 from rsa import common, transform, core
 from Crypto.Util.asn1 import DerSequence
 from Crypto.PublicKey import RSA
+version="v1.3"
 
 def extract_hash(pub_key,data):
     hashlen = 32 #SHA256
@@ -42,7 +45,7 @@ def dump_signature(data):
         pub_key = RSA.importKey(subjectPublicKeyInfo)
         pub_key = rsa.PublicKey(int(pub_key.n), int(pub_key.e))
         hash=extract_hash(pub_key,signature)
-        return [name,length,hash,pub_key]
+        return [name,length,hash,pub_key,bytes(der[3])[1:2]]
 
 class androidboot:
     magic="ANDROID!" #BOOT_MAGIC_SIZE 8
@@ -87,13 +90,17 @@ def int_to_bytes(x):
     return x.to_bytes((x.bit_length() + 7) // 8, 'big')
 
 def main(argv):
-    print("\nDump Android Verified Boot Signature v1.2 (c) B.Kerler 2017-2018")
-    print("----------------------------------------------------------------")
-    if (len(argv)!=1):
-        print("Usage: verify_signature.py [boot.img]")
+    print("\nBoot Signature Tool (c) B.Kerler 2017-2018")
+    print("------------------------------------------------------")
+    parser = argparse.ArgumentParser(description='Boot Signature Tool (c) B.Kerler 2017-2018')
+    parser.add_argument('--file','-f', dest='filename', default="", action='store', help='boot or recovery image filename')
+    parser.add_argument('--length','-l', dest='inject', action='store_true', default=False, help='adapt signature length')
+    args = parser.parse_args()
+
+    if args.filename=="":
+        print("Usage: verify_signature.py -f [boot.img]")
         exit(0)
-    filename=argv[0]
-    param=getheader(filename)
+    param=getheader(args.filename)
     kernelsize = int((param.kernel_size + param.page_size - 1) / param.page_size) * param.page_size
     ramdisksize = int((param.ramdisk_size + param.page_size - 1) / param.page_size) * param.page_size
     secondsize = int((param.second_size + param.page_size - 1) / param.page_size) * param.page_size
@@ -106,49 +113,59 @@ def main(argv):
     length=param.page_size+kernelsize+ramdisksize+secondsize+qcdtsize
     print("Signature start=0x%08X" % length)
     sha256=hashlib.sha256()
-    with open(filename,'rb') as fr:
+    with open(args.filename,'rb') as fr:
         data=fr.read(length)
-        id=binascii.hexlify(data[576:576+32])
-        print("ID: "+id.decode('utf-8'))
         sha256.update(data)
         signature = fr.read()
-        metadata=dump_signature(signature)
-        if (metadata is not None):
-            target = metadata[0]
-            print("\nImage-Target: "+str(target))
-            print("Image-Length: "+hex(metadata[1]))
-
-            meta=b"\x30\x11\x13"+bytes(struct.pack('B',len(target)))+target+b"\x02\x04"+bytes(struct.pack(">I",length))
-            sha256.update(meta)
-            digest=sha256.digest()
-            print("\nImage-Hash: "+str(binascii.hexlify(digest)))
-            print("Signature-Hash: " + str(binascii.hexlify(metadata[2])))
-            if str(binascii.hexlify(digest))==str(binascii.hexlify(metadata[2])):
-                print("AVB-Status: VERIFIED, 0")
-            else:
-                print("AVB-Status: RED, 3 or ORANGE, 1")
-            pub_key=metadata[3]
-            modulus=int_to_bytes(pub_key.n)
-            exponent=int_to_bytes(pub_key.e)
-            print("\nSignature-RSA-Modulus (n): "+str(binascii.hexlify(modulus)))
-            print("Signature-RSA-Exponent (e): " + str(binascii.hexlify(exponent)))
-
-            sha256 = hashlib.sha256()
-            sha256.update(modulus+exponent)
-            pubkey_hash=sha256.digest()
-
-            locked=pubkey_hash+struct.pack('<I',0x0)
-            unlocked = pubkey_hash + struct.pack('<I', 0x1)
-            sha256 = hashlib.sha256()
-            sha256.update(locked)
-            root_of_trust_locked=sha256.digest()
-            sha256 = hashlib.sha256()
-            sha256.update(unlocked)
-            root_of_trust_unlocked=sha256.digest()
-            print("\nTZ Root of trust (locked): " + str(binascii.hexlify(root_of_trust_locked)))
-            print("TZ Root of trust (unlocked): " + str(binascii.hexlify(root_of_trust_unlocked)))
+        target,siglength,hash,pub_key,flag=dump_signature(signature)
+        id=binascii.hexlify(data[576:576+32])
+        print("ID: "+id.decode('utf-8'))
+        print("\nImage-Target: "+str(target))
+        print("Image-Length: "+hex(length))
+        print("Signature-Length: "+hex(siglength))
+        meta=b"\x30"+flag+b"\x13"+bytes(struct.pack('B',len(target)))+target+b"\x02\x04"+bytes(struct.pack(">I",length))
+        print(meta)
+        sha256.update(meta)
+        digest=sha256.digest()
+        print("\nImage-Hash: "+str(binascii.hexlify(digest)))
+        print("Signature-Hash: " + str(binascii.hexlify(hash)))
+        if str(binascii.hexlify(digest))==str(binascii.hexlify(hash)):
+            print("AVB-Status: VERIFIED, 0")
         else:
-            print("\nNo AVB v1 signature found.")
+            print("AVB-Status: RED, 3 or ORANGE, 1")
+
+        modulus=int_to_bytes(pub_key.n)
+        exponent=int_to_bytes(pub_key.e)
+        mod=str(binascii.hexlify(modulus).decode('utf-8'))
+        print("\nSignature-RSA-Modulus (n): "+mod)
+        print("Signature-RSA-Exponent (e): " + str(binascii.hexlify(exponent).decode('utf-8')))
+        if mod=="eb0478815591b50e090702347db475af966f886ba5d3c1baa273851400aea7cc8481398defb7b747c33fda93512b9aefa538ea4ffc907b4836410782e57dbf7241080f5f380dd2362345fc09c3f15e122176951d07d06802fa5f2a821856dd002a8699fedad774d60be1ebc6c05e0db849375a43228c54d6c2fe28e88d530d971604ef7dc1a4e4faad79bff2e4bcc783dddcc798bbf7e0b9fc43e0d74930f8ae93d5c3f5971b0ddbcc881b9117267cdfa3d29d276fc8909440ef0cfa410a866ece65be77c551a3c838d629cebd27c7d62f38535f68484d248703c686359fa6ab3fdc6591153d79c50af6972d2b02fd3ddabef019d5da8699367ceceb853e4d3f":
+	        print("\n!!!! Image seems to be signed by google test keys, yay !!!!")
+        sha256 = hashlib.sha256()
+        sha256.update(modulus+exponent)
+        pubkey_hash=sha256.digest()
+        locked=pubkey_hash+struct.pack('<I',0x0)
+        unlocked = pubkey_hash + struct.pack('<I', 0x1)
+        sha256 = hashlib.sha256()
+        sha256.update(locked)
+        root_of_trust_locked=sha256.digest()
+        sha256 = hashlib.sha256()
+        sha256.update(unlocked)
+        root_of_trust_unlocked=sha256.digest()
+        print("\nTZ Root of trust (locked): " + str(binascii.hexlify(root_of_trust_locked)))
+        print("TZ Root of trust (unlocked): " + str(binascii.hexlify(root_of_trust_unlocked)))
+
+    if (args.inject==True):
+        pos = signature.find(target)
+        if (pos != -1):
+            lenpos = signature.find(struct.pack(">I",length)[0],pos)
+            if (lenpos!=-1):
+                with open(args.filename[0:-4]+"_signed.bin",'wb') as wf:
+                    wf.write(data)
+                    wf.write(signature[0:lenpos])
+                    wf.write(struct.pack(">I",length))
+                    wf.write(signature[lenpos+4:])
+                    print("Successfully injected !")
 
 if __name__ == "__main__":
    main(sys.argv[1:])
