@@ -1,4 +1,4 @@
-# Dump/Verify Android Verified Boot Signature Hash v1.3 (c) B.Kerler 2017-2018
+# Dump/Verify Android Verified Boot Signature Hash v1.4 (c) B.Kerler 2017-2019
 
 Why
 ===
@@ -14,9 +14,6 @@ Run
 ===
 - python verify_signature.py --file boot.img
 
-Issues
-======
-- Might not work with AVB Version 2.0 or higher
  
 Published under MIT license
 
