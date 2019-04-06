@@ -147,13 +147,18 @@ def main(argv):
             ctx.update(imgavbhash.salt)
             ctx.update(data[:imgavbhash.image_size])
             root_digest=ctx.digest()
-            print("Salt: \t\t\t\t\t\t" + str(hexlify(imgavbhash.salt).decode('utf-8')))
+            print("Salt: \t\t\t\t\t" + str(hexlify(imgavbhash.salt).decode('utf-8')))
             print("Image-Size: \t\t\t\t" + hex(imgavbhash.image_size))
             img_digest=str(hexlify(root_digest).decode('utf-8'))
             img_avb_digest=str(hexlify(imgavbhash.digest).decode('utf-8'))
             print("\nCalced Image-Hash: \t\t\t" + img_digest)
             #print("Calced Hash_Tree: " + str(binascii.hexlify(hash_tree)))
             print("Image-Hash: \t\t\t\t" + img_avb_digest)
+            avbmetacontent={}
+            vbmeta=None
+            if args.vbmetaname=="":
+                if os.path.exists("vbmeta.img"):
+                    args.vbmetaname="vbmeta.img"
             if args.vbmetaname!="":
                 with open(args.vbmetaname,'rb') as vbm:
                     vbmeta=vbm.read()
@@ -174,7 +179,6 @@ def main(argv):
                     auxdata=auxilary_data(avbhdr,vbmeta).data
 
                     auxlen=len(auxdata)
-                    avbmetacontent={}
                     i=0
                     while (i<auxlen):
                         desc=AvbDescriptor(auxdata[i:])
@@ -211,22 +215,23 @@ def main(argv):
                     digest=avbmetacontent[imgavbhash.partition_name]["digest"]
                     vbmeta_digest = str(hexlify(digest).decode('utf-8'))
                     print("VBMeta-Image-Hash: \t\t\t" + vbmeta_digest)
-
-            pubkeydata=vbmeta[AvbVBMetaHeader.SIZE+avbhdr.authentication_data_block_size+avbhdr.public_key_offset:
-                              AvbVBMetaHeader.SIZE+avbhdr.authentication_data_block_size+avbhdr.public_key_offset
-                              +avbhdr.public_key_size]
-            modlen = struct.unpack(">I",pubkeydata[:4])[0]//4
-            n0inv = struct.unpack(">I", pubkeydata[4:8])[0]
-            modulus=hexlify(pubkeydata[8:8+modlen]).decode('utf-8')
-            print("\nSignature-RSA-Modulus (n):\t"+modulus)
-            print("Signature-n0inv: \t\t\t" + str(n0inv))
-            if modulus=="d804afe3d3846c7e0d893dc28cd31255e962c9f10f5ecc1672ab447c2c654a94b5162b00bb06ef1307534cf964b9287a1b849888d867a423f9a74bdc4a0ff73a18ae54a815feb0adac35da3bad27bcafe8d32f3734d6512b6c5a27d79606af6bb880cafa30b4b185b34daaaac316341ab8e7c7faf90977ab9793eb44aecf20bcf08011db230c4771b96dd67b604787165693b7c22a9ab04c010c30d89387f0ed6e8bbe305bf6a6afdd807c455e8f91935e44feb88207ee79cabf31736258e3cdc4bcc2111da14abffe277da1f635a35ecadc572f3ef0c95d866af8af66a7edcdb8eda15fba9b851ad509ae944e3bcfcb5cc97980f7cca64aa86ad8d33111f9f602632a1a2dd11a661b1641bdbdf74dc04ae527495f7f58e3272de5c9660e52381638fb16eb533fe6fde9a25e2559d87945ff034c26a2005a8ec251a115f97bf45c819b184735d82d05e9ad0f357415a38e8bcc27da7c5de4fa04d3050bba3ab249452f47c70d413f97804d3fc1b5bb705fa737af482212452ef50f8792e28401f9120f141524ce8999eeb9c417707015eabec66c1f62b3f42d1687fb561e45abae32e45e91ed53665ebdedade612390d83c9e86b6c2da5eec45a66ae8c97d70d6c49c7f5c492318b09ee33daa937b64918f80e6045c83391ef205710be782d8326d6ca61f92fe0bf0530525a121c00a75dcc7c2ec5958ba33bf0432e5edd00db0db33799a9cd9cb743f7354421c28271ab8daab44111ec1e8dfc1482924e836a0a6b355e5de95ccc8cde39d14a5b5f63a964e00acb0bb85a7cc30be6befe8b0f7d348e026674016cca76ac7c67082f3f1aa62c60b3ffda8db8120c007fcc50a15c64a1e25f3265c99cbed60a13873c2a45470cca4282fa8965e789b48ff71ee623a5d059377992d7ce3dfde3a10bcf6c85a065f35cc64a635f6e3a3a2a8b6ab62fbbf8b24b62bc1a912566e369ca60490bf68abe3e7653c27aa8041775f1f303621b85b2b0ef8015b6d44edf71acdb2a04d4b421ba655657e8fa84a27d130eafd79a582aa381848d09a06ac1bbd9f586acbd756109e68c3d77b2ed3020e4001d97e8bfc7001b21b116e741672eec38bce51bb4062331711c49cd764a76368da3898b4a7af487c8150f3739f66d8019ef5ca866ce1b167921dfd73130c421dd345bd21a2b3e5df7eaca058eb7cb492ea0e3f4a74819109c04a7f42874c86f63202b462426191dd12c316d5a29a206a6b241cc0a27960996ac476578685198d6d8a62da0cfece274f282e397d97ed4f80b70433db17b9780d6cbd719bc630bfd4d88fe67acb8cc50b768b35bd61e25fc5f3c8db1337cb349013f71550e51ba6126faeae5b5e8aacfcd969fd6c15f5391ad05de20e751da5b9567edf4ee426570130b70141cc9e019ca5ff51d704b6c0674ecb52e77e174a1a399a0859ef1acd87e":
-                print("\n!!!! Image seems to be signed by google test keys, yay !!!!")
-
             else:
                 print("Couldn't find "+imgavbhash.partition_name+" in "+args.vbmetaname)
                 exit(0)
 
+            if vbmeta!=None:
+                pubkeydata=vbmeta[AvbVBMetaHeader.SIZE+avbhdr.authentication_data_block_size+avbhdr.public_key_offset:
+                                  AvbVBMetaHeader.SIZE+avbhdr.authentication_data_block_size+avbhdr.public_key_offset
+                                  +avbhdr.public_key_size]
+                modlen = struct.unpack(">I",pubkeydata[:4])[0]//4
+                n0inv = struct.unpack(">I", pubkeydata[4:8])[0]
+                modulus=hexlify(pubkeydata[8:8+modlen]).decode('utf-8')
+                print("\nSignature-RSA-Modulus (n):\t"+modulus)
+                print("Signature-n0inv: \t\t\t" + str(n0inv))
+                if modulus=="d804afe3d3846c7e0d893dc28cd31255e962c9f10f5ecc1672ab447c2c654a94b5162b00bb06ef1307534cf964b9287a1b849888d867a423f9a74bdc4a0ff73a18ae54a815feb0adac35da3bad27bcafe8d32f3734d6512b6c5a27d79606af6bb880cafa30b4b185b34daaaac316341ab8e7c7faf90977ab9793eb44aecf20bcf08011db230c4771b96dd67b604787165693b7c22a9ab04c010c30d89387f0ed6e8bbe305bf6a6afdd807c455e8f91935e44feb88207ee79cabf31736258e3cdc4bcc2111da14abffe277da1f635a35ecadc572f3ef0c95d866af8af66a7edcdb8eda15fba9b851ad509ae944e3bcfcb5cc97980f7cca64aa86ad8d33111f9f602632a1a2dd11a661b1641bdbdf74dc04ae527495f7f58e3272de5c9660e52381638fb16eb533fe6fde9a25e2559d87945ff034c26a2005a8ec251a115f97bf45c819b184735d82d05e9ad0f357415a38e8bcc27da7c5de4fa04d3050bba3ab249452f47c70d413f97804d3fc1b5bb705fa737af482212452ef50f8792e28401f9120f141524ce8999eeb9c417707015eabec66c1f62b3f42d1687fb561e45abae32e45e91ed53665ebdedade612390d83c9e86b6c2da5eec45a66ae8c97d70d6c49c7f5c492318b09ee33daa937b64918f80e6045c83391ef205710be782d8326d6ca61f92fe0bf0530525a121c00a75dcc7c2ec5958ba33bf0432e5edd00db0db33799a9cd9cb743f7354421c28271ab8daab44111ec1e8dfc1482924e836a0a6b355e5de95ccc8cde39d14a5b5f63a964e00acb0bb85a7cc30be6befe8b0f7d348e026674016cca76ac7c67082f3f1aa62c60b3ffda8db8120c007fcc50a15c64a1e25f3265c99cbed60a13873c2a45470cca4282fa8965e789b48ff71ee623a5d059377992d7ce3dfde3a10bcf6c85a065f35cc64a635f6e3a3a2a8b6ab62fbbf8b24b62bc1a912566e369ca60490bf68abe3e7653c27aa8041775f1f303621b85b2b0ef8015b6d44edf71acdb2a04d4b421ba655657e8fa84a27d130eafd79a582aa381848d09a06ac1bbd9f586acbd756109e68c3d77b2ed3020e4001d97e8bfc7001b21b116e741672eec38bce51bb4062331711c49cd764a76368da3898b4a7af487c8150f3739f66d8019ef5ca866ce1b167921dfd73130c421dd345bd21a2b3e5df7eaca058eb7cb492ea0e3f4a74819109c04a7f42874c86f63202b462426191dd12c316d5a29a206a6b241cc0a27960996ac476578685198d6d8a62da0cfece274f282e397d97ed4f80b70433db17b9780d6cbd719bc630bfd4d88fe67acb8cc50b768b35bd61e25fc5f3c8db1337cb349013f71550e51ba6126faeae5b5e8aacfcd969fd6c15f5391ad05de20e751da5b9567edf4ee426570130b70141cc9e019ca5ff51d704b6c0674ecb52e77e174a1a399a0859ef1acd87e":
+                    print("\n!!!! Image seems to be signed by google test keys, yay !!!!")
+            else:
+                print("VBMeta info missing... please copy vbmeta.img to the directory.")
             state=3
             if img_digest==img_avb_digest:
                 state=0
@@ -243,7 +248,11 @@ def main(argv):
             data=data[:length]
             sha256 = hashlib.sha256()
             sha256.update(data)
-            target,siglength,hash,pub_key,flag=dump_signature(signature)
+            try:
+                target,siglength,hash,pub_key,flag=dump_signature(signature)
+            except:
+                print("No signature found :/")
+                exit(0)
             id=hexlify(data[576:576+32])
             print("\nID: "+id.decode('utf-8'))
             print("Image-Target: "+str(target))
