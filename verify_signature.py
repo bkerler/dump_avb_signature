@@ -9,7 +9,7 @@ from Crypto.Util.asn1 import DerSequence
 from Crypto.PublicKey import RSA
 from Library.libavb import *
 
-version="v1.5"
+version="v1.6"
 
 def extract_hash(pub_key,data):
     hashlen = 32 #SHA256
@@ -124,8 +124,10 @@ def main(argv):
 
     with open(args.filename,'rb') as fr:
         data=fr.read()
-        if data[-AvbFooter.SIZE:-AvbFooter.SIZE+4]==b"AVBf":
-            ftr=AvbFooter(data[-AvbFooter.SIZE:])
+        filesize=os.stat(args.filename).st_size
+        footerpos=(filesize//0x1000*0x1000)-AvbFooter.SIZE
+        if data[footerpos:footerpos+4]==b"AVBf":
+            ftr=AvbFooter(data[footerpos:footerpos+AvbFooter.SIZE])
             signature=data[ftr.vbmeta_offset:]
             data=data[0:ftr.vbmeta_offset]
             avbhdr=AvbVBMetaHeader(signature[:AvbVBMetaHeader.SIZE])
